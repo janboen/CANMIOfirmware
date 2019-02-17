@@ -29,8 +29,10 @@
 /*
  * File:   main.c
  * Author: Ian Hogg
+ * Edited by: Jan Boen
  * 
  * This is the main for the Configurable CANMIO module.
+ * Has been extended so it also handles the 1Track use case.
  * 
  * Timer usage:
  * TMR0 used in ticktime for symbol times. Used to trigger next set of servo pulses
@@ -39,7 +41,7 @@
  * TMR3 Servo outputs 2, 6, 10, 14
  * TMR4 Servo outputs 3, 7, 11, 15
  *
- * Created on 10 April 2017, 10:26
+ * Updated on 14 Feb 2019, 17:26
  */
 /** TODOs
 
@@ -134,14 +136,10 @@
 #ifdef ANALOGUE
 #include "analogue.h"
 #endif
-
-
-extern void initOutputs(void);
-extern void processOutputs(void);
-
 #ifdef NV_CACHE
 #include "nvCache.h"
 #endif
+#include "cbus1Track.h"
 
 #ifdef __18CXX
 void ISRLow(void);
@@ -240,7 +238,7 @@ void LOW_INT_VECT(void)
 
 static TickValue   startTime;
 static BOOL        started = FALSE;
-TickValue   lastServoStartTime;
+TickValue          lastServoStartTime;
 static TickValue   lastInputScanTime;
 static TickValue   lastActionPollTime;
 static unsigned char io;
@@ -274,11 +272,17 @@ int main(void) @0x800 {
     lastServoStartTime.Val = startTime.Val;
     lastInputScanTime.Val = startTime.Val;
     lastActionPollTime.Val = startTime.Val;
+
+    //If the node has been configured for 1Track then also intialise the IO to PIN mapping 
+    if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= THREEMODE)){
+        io2PinMapping();
+    }
     
     initialise(); 
 
     while (TRUE) {
-        // Startup delay for CBUS about 2 seconds to let other modules get powered up - ISR will be running so incoming packets processed
+        // Startup delay for CBUS about 2 seconds to let other modules get powered up
+        // ISR will be running so incoming packets processed
         if (!started && (tickTimeSince(startTime) > (NV->sendSodDelay * HUNDRED_MILI_SECOND) + TWO_SECOND)) {
             started = TRUE;
             if (NV->sendSodDelay > 0) {
@@ -286,7 +290,13 @@ int main(void) @0x800 {
             }
         }
         checkCBUS();    // Consume any CBUS message and act upon it
+        
         FLiMSWCheck();  // Check FLiM switch for any mode changes
+        
+        //If the node has been configured for 1Track then also execute the 1Track logic 
+        if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= THREEMODE)){
+            trackCoreLogic(); // Check all 4 channels of 1Track but not yet generate/consume messages
+        }
         
         if (started) {
 #ifdef SERVO

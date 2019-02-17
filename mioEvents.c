@@ -231,6 +231,7 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
     unsigned char io;
     unsigned char ca;
     int action;
+    BOOL executeCheck; //1Track specific
 
     BYTE opc = getEVs(tableIndex);
 #ifdef SAFETY
@@ -255,11 +256,13 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
                     } else {
                         io = CONSUMER_IO(action&ACTION_MASK);
                         ca = CONSUMER_ACTION(action&ACTION_MASK);
+                        executeCheck = TRUE;//1Track related
                         switch (NV->io[io].type) {
                             case TYPE_OUTPUT:
                                 if (NV->io[io].flags & FLAG_EXPEDITED_ACTIONS) {
                                     setExpeditedActions();
                                 }
+                                executeCheck = executeAction (io, ca, action);//1Track related
                                 // fall through
                             case TYPE_SERVO:
                             case TYPE_BOUNCE:
@@ -267,7 +270,10 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
                                     // action 1 (EV) must be converted to 2(ON)
                                     action++;
                                 }
-                                pushAction((CONSUMER_ACTION_T)action);
+                                //1Track specific addition, will break without any action when the local state requires it
+                                if (executeCheck){
+                                    pushAction((CONSUMER_ACTION_T)action);
+                                }
                                 setNormalActions();
                                 break;
                             case TYPE_MULTI:

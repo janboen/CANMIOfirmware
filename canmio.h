@@ -67,7 +67,7 @@ extern "C" {
 #define BETA        5
 
 #include "GenericTypeDefs.h"
-#include "cbusdefs8q.h"
+#include "../CBUSlib/cbusdefs8q.h"
 
 #define MANU_ID         MANU_MERG
 #define MODULE_ID       MTYP_CANMIO
