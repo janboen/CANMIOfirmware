@@ -28,6 +28,7 @@
 */ 
 /* File:   canmio.h
  * Author: Ian Hogg
+ * Editor: Jan Boen
  * 
  * This file contain general definitions for the CANMIO module.
  *
@@ -63,15 +64,15 @@ extern "C" {
  * Module parameters
  */ 
 #define MAJOR_VER 	2
-#define MINOR_VER 	'b'        // Minor version character
+#define MINOR_VER 	'bT'        // Minor version character
 #define BETA        5
 
 #include "GenericTypeDefs.h"
-#include "../CBUSlib/cbusdefs8q.h"
+#include "cbusdefs8q.h"
 
 #define MANU_ID         MANU_MERG
 #define MODULE_ID       MTYP_CANMIO
-#define MODULE_TYPE     "MIO    "       // MUST be at least 7 character long. First 7 are used.
+#define MODULE_TYPE     "MIO_1TK"       // MUST be at least 7 character long. First 7 are used.
 #define MODULE_FLAGS    PF_COMBI+PF_BOOT+PF_COE  // Producer, consumer, boot
 #define BUS_TYPE        PB_CAN
 #define LOAD_ADDRESS    0x0800      // Need to put in parameter block at compile time, only known to linker so hard code here
@@ -86,4 +87,3 @@ extern "C" {
 #endif
 
 #endif	/* CANMIO_H */
-

@@ -151,7 +151,7 @@ extern "C" {
 #define TYPE_MAGNET                 6
 
 // the flags
-#define	FLAG_TRIGGER_INVERTED               0x01	// Whether the sense of this input or output inverted
+#define	FLAG_TRIGGER_INVERTED       0x01	// Whether the sense of this input or output inverted
 #define	FLAG_CUTOFF                 0x02	// Whether the servo cut off after 1 second once it has reached its target position
 #define	FLAG_STARTUP                0x04	// Whether this output be changed on module start to match values in EE_OP_STATE
 #define FLAG_DISABLE_OFF            0x08    // Whether off events are generated

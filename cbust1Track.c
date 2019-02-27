@@ -7,13 +7,13 @@
  * 1- The core logic to handle the 1Track logic which allows using 3-rail tracks to simultaneously operate
  *      DCC/digital 2-rail rolling stock and DCC/digital 3-rail rolling stock in any section of track
  *      where 3-rail is typically Märklin and 2-rail most other H0 vendors. 
- * 2- Allow the modification of an produced events Event Number
+ * 2- Allow the modification of a produced event's Event Number
  * 3- Allow not taking action on a consumed ACON event
  * 4- Introduces an extra config option using NV spare 10 so the appropriate 1Track operating mode can be set
  *      If the spare 10 value is outside the range of 0x81 - 0x83 then the node will operate like a standard CANMIO
  * 
  * Features 2 and 3 should be generic as well as 4, the use of spare 10, so that anyone who wishes to run local logic can
- * leverage the extra features with little effort. This is also why the extra class of eventMods. and it's header file have been created.
+ * leverage the extra features with little effort. This is also why the extra class of eventMods and it's header file have been created.
  * 
  * Created on 9 Feb 2019, 16:26
  */
@@ -25,42 +25,43 @@
 
 //Define & set global variables
 TickValue nowTime;
-unsigned char countio = 0;
-unsigned char count1T[4] =  {0, 0, 0, 0};
-char maxlostocc = 8; //x 125 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
-char maxshort = 30;  //maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
-unsigned char rlsense = 0;
-unsigned char rloop = 0; //holds the current switch/case state value of the reversing loop
-unsigned char timeio = 0;
-unsigned char sectionTime[4] = {0, 0, 0, 0};
-unsigned char stateio = 0; //holds the current switch/case state value of a section
-unsigned char state[4] = {0, 0, 0, 0};
-unsigned char lostoccio = 0;
-unsigned char lostocc[4] = {0, 0, 0, 0};
-BOOL passio = 0;
-BOOL pass[4] = {0, 0, 0, 0};
-BOOL occupied = ABSENT;
-BOOL senseio = ABSENT;
-BOOL modeio = 0;
-BOOL preinio = ABSENT;
-BOOL prein[4] = {ABSENT, ABSENT, ABSENT, ABSENT};
-BOOL rlstate = 0;
-BOOL occ[4] = {0, 0, 0, 0}; //IN
-BOOL sense[4] = {0, 0, 0, 0}; //IN
-BOOL mode[4] = {0, 0, 0, 0}; //OUT
-unsigned char softprein[4] = {0, 0, 0, 0}; //OUT
-unsigned char forced[4] = {0, 0, 0, 0};
-unsigned char forcedcount[4] = {0, 0, 0, 0};
-unsigned char forcedio = 0;
-unsigned char forcedcountio = 0;
-unsigned char usepreinio = 0; //Set to 1 once pull-up resistors are in place, this will enable the prein
-unsigned char useforced = 1;  //Set to 1 to enable the recovery logic when a section was forced from state 20 to 30
-//unsigned char dev = 0;
-unsigned char trackMode = 0; //Case variable for holding the software mode, has to be read from memory and external pins
-unsigned char tmrbit = 0;
-unsigned char tic = 0;
-unsigned char tac = 1;
-
+unsigned char channelCounter;
+unsigned char countio;
+unsigned char count1T[4];
+char maxlostocc;
+char maxshort;
+unsigned char rlsense;
+unsigned char rloop;
+unsigned char timeio;
+unsigned char sectionTime[4];
+unsigned char stateio;
+unsigned char state[4];
+unsigned char lostoccio;
+unsigned char lostocc[4];
+BOOL passio;
+BOOL pass[4];
+BOOL occio;
+BOOL senseio;
+BOOL modeio;
+BOOL preinio;
+BOOL prein[4];
+BOOL rlstate;
+BOOL occ[4];
+BOOL sense[4];
+BOOL mode[4];
+unsigned char softprein[4];
+unsigned char forced[4];
+unsigned char forcedcount[4];
+unsigned char forcedio;
+unsigned char forcedcountio;
+unsigned char usepreinio;
+unsigned char useforced;
+//unsigned char dev;
+unsigned char trackMode;
+unsigned char tmrbit;
+unsigned char tic;
+unsigned char tac;   
+    
 /* New code CBUS protocol and MERG CANMIO pic based hardware
 The hardware input for pre in is dropped as well as the pre out outputs as this board only has 16 usable pins.
 
@@ -89,6 +90,52 @@ The 3 sections will provide a stable input for the reversing loop code
 Define & set global variables
 See cbus1Track.h
 */
+void init1TrackVars(void){
+    unsigned char c;
+    channelCounter = 0;
+    countio = 0;
+    for (c = 0; c < 4; c++){
+        count1T[c] =  0;
+        sectionTime[c] = 0;
+        state[c] = 88;// stores the state value of a section
+        lostocc[c] = 0;
+        pass[c] = 0;
+        prein[c] = ABSENT;
+        occ[c] = 0; //IN
+        sense[c] = 0; //IN
+        mode[c] = 0; //read from OUT
+        softprein[c] = 0; //OUT
+        forced[c] = 0;
+        forcedcount[c] = 0;
+    }
+    if (DEVMODE == 0){//Normal mode with standard timings
+        maxlostocc = 8; // x 125 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
+        maxshort = 30;  // maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
+    } else {//Simulation mode with shorter timings
+        maxlostocc = 1; // x 16 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
+        maxshort = 2;  // maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
+    }
+    rlsense = 0;
+    rloop = 0; //holds the current switch/case state value of the reversing loop
+    timeio = 0;
+    stateio = 0; //holds the current switch/case state value of a section
+    lostoccio = 0;
+    passio = 0;
+    occio = ABSENT;
+    senseio = ABSENT;
+    modeio = 0;
+    preinio = ABSENT;
+    rlstate = 0;
+    forcedio = 0;
+    forcedcountio = 0;
+    usepreinio = 0; //Set to 1 once pull-up resistors are in place, this will enable the prein
+    useforced = 1;  //Set to 1 to enable the recovery logic when a section was forced from state 20 to 30
+    //unsigned char dev = 0;
+    trackMode = 0; //Case variable for holding the software mode, has to be read from memory and external pins
+    tmrbit = 0;
+    tic = 0;
+    tac = 1;  
+}
 
 unsigned char ticTac(void){
     //From the timer bits read the second byte first bit so use a mask of 0x01
@@ -114,6 +161,25 @@ void getTrackMode(void){
     if (NV->spare[10] == THREEMODE){
         trackMode = 2;        
     }    
+}
+
+void set1TrackPorts(void){//only needed for debugging/simulation purposes
+    
+    //Set the proper ports to outputs, default is input
+    if (TRISCbits.TRISC2 != 0) {TRISCbits.TRISC2 = 0;}
+    if (TRISCbits.TRISC6 != 0) {TRISCbits.TRISC6 = 0;}
+    if (TRISBbits.TRISB5 != 0) {TRISBbits.TRISB5 = 0;}
+    if (TRISAbits.TRISA3 != 0) {TRISAbits.TRISA3 = 0;}
+    
+    //Set all input pins to high as the logic is active low
+    PORTCbits.RC0 = 0;
+    PORTCbits.RC1 = 0;
+    PORTCbits.RC4 = 0;
+    PORTCbits.RC5 = 0;
+    PORTBbits.RB0 = 0;
+    PORTBbits.RB1 = 0;
+    PORTAbits.RA1 = 0;
+    PORTAbits.RA0 = 0;
 }
 
 //Reverse Loop Logic
@@ -167,7 +233,7 @@ void reverseLoop(void) {
             if (countio >= ONEEIGHTSEC) { // waited long enough
                 rlstate = 0; // reverse loop idle
                 modeio = 0; // relay switched to via S1
-                rlsense = 0; // sensio set to uncertain
+                rlsense = 0; // sense set to uncertain
                 countio = 0; // reset counter
             }
         } else {
@@ -179,9 +245,7 @@ void reverseLoop(void) {
 void trackCoreLogic(){ //One invocation of this method will handle the 4 channels
     
     //Define & set local variables
-	char i = 0;
-	char j = 0;
-    int a = 0;
+	unsigned char channelCounter = 0;
     
     //Latch the values of the I/O ports into variables
     occ[0] = OCC1;
@@ -194,10 +258,10 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
     sense[2] = SHORT3;
     sense[3] = SHORT4;
 
-    mode[0] = MODE1;
-    mode[1] = MODE2;
-    mode[2] = MODE3;
-    mode[3] = MODE4;
+    mode[0] = MODE1; // Output
+    mode[1] = MODE2; // Output
+    mode[2] = MODE3; // Output
+    mode[3] = MODE4; // Output
 
     //This is the tic/tac logic we will use for timing below each tic/tac is 16,384 ms
     tic = ticTac();
@@ -213,17 +277,17 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
     getTrackMode();
     
 	//For each channel execute below
-	for (j = 0; 3; j++){
+	for (channelCounter = 0; channelCounter < CHANNELS; channelCounter++){
 		//Get values
-        countio = count1T[j];
-		occupied = occ[j];
-		senseio = sense[j];
-		modeio = mode[j];
-        preinio = prein[j];
-		timeio = sectionTime[j];
-		stateio = state[j];
-		lostoccio = lostocc[j];
-		passio = pass[j];
+        countio = count1T[channelCounter];
+		occio = occ[channelCounter];
+		senseio = sense[channelCounter];
+		modeio = mode[channelCounter];
+        preinio = prein[channelCounter];
+		timeio = sectionTime[channelCounter];
+		stateio = state[channelCounter];
+		lostoccio = lostocc[channelCounter];
+		passio = pass[channelCounter];
 		//Check current section
 		//Possible valid states:
 		//Sense Occ     meaning
@@ -232,9 +296,9 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
 		//Abs    Abs    Idle/PoT
 		switch (trackMode) {
 			case 0: //standard mode
-            #ifdef DEV1 !! DEV2
-				preinio = ABSENT;  //Force preset value to zero so it is not taken into account during debugging
-            #endif
+            //#ifdef DEV1 !! DEV2
+			//	preinio = ABSENT;  //Force preset value to zero so it is not taken into account during debugging
+            //#endif
 			switch (stateio) {
 				case 10:  //Idle mode
 					if (senseio == PRESENT) { //This section is possibly shortened
@@ -242,14 +306,14 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
 						stateio = 23;  //must go to transition mode
                         countio = 0; //reset counter
 					} else { //section safe so check if
-                        if (occupied == PRESENT) { //section occupied
+                        if (occio == PRESENT) { //section occupied
                             if (countio >= ONEEIGHTSEC) { //waited long enough
                                 countio = 0; //reset counter
-                            }
-                            if (sense == PRESENT) {
-                                stateio = 20;  //Looks normal so let's go to 2R
-                            } else {
-                                stateio = 23; //Hmm, also shortened so let's go 3R instead
+                                if (senseio == ABSENT) {
+                                    stateio = 20;  //Looks normal so let's go to 2R
+                                } else {
+                                    stateio = 23; //Hmm, also shortened so let's go 3R instead
+                                }
                             }
                         } else {//section free
                             if (preinio == PRESENT) { //preset received
@@ -263,7 +327,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
                     forcedcountio = 0; //reset the forced counter                   
 				break;
 				case 20:  //2R occupied mode
-                    if ((occupied == ABSENT) && (senseio == ABSENT)) { //section free
+                    if ((occio == ABSENT) && (senseio == ABSENT)) { //section free
                         if (countio >= ONEEIGHTSEC) { //waited long enough
                             stateio = 10; //set Idle state
                             forcedio = 0; //Not forced from 20 to 30
@@ -271,7 +335,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
                     }else {
                         countio = 0; //reset counter
                     }
-                    if (sense == PRESENT) { //possible short circuit
+                    if (senseio == PRESENT) { //possible short circuit
                         modeio = 1; //just to be safe toggle relay &
                         stateio = 23; //switch to 3R transition mode
                         forcedio = 1; //Being forced from 20 to 30
@@ -285,15 +349,10 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
 				break;
 				case 30:  //3R mode, occupied signal which combines current consumption and voltage presence
                     if (senseio == ABSENT) { //3R normal status
-                        if (occupied == ABSENT) { //looks like the section might be free
+                        if (occio == ABSENT) { //looks like the section might be free
                             stateio = 88; //3R occupied lost
-                        } else { //still occupied
-                            //preoutio = PRESENT; //set preset out
                         }    
-                    } else { //3R short cut status
-                        //This can't be resolved by 1Track at this stage
-                        //preoutio = ABSENT; //will remove preout setting while in short circuited
-                    } 
+                    }
                     if ((useforced == 1) && (forcedio == 1)) { //Will try to recover from being forced in to state 30 from 20
                             if (countio >= ONEEIGHTSEC) { //Timer
                                 countio = 0;  //reset counter
@@ -311,7 +370,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
 				break;
 				case 88:  //3R occupied lost
                     if (preinio == ABSENT) { //preset is not PRESENT
-                        if (occupied == ABSENT) { //3R occupied lost
+                        if (occio == ABSENT) { //3R occupied lost
                             if (countio >= ONEEIGHTSEC) { //waited long enough
                                 countio = 0; //reset counter
                                 lostoccio = lostoccio + 1;
@@ -320,58 +379,53 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
                         } else { //3R occupied PRESENT
                             lostoccio = 0;
                             stateio = 30; //occupied lost mode ended
-                            //preoutio = PRESENT; //set preset out
                         }
                         if (lostoccio >= maxlostocc) { //go to idle mode
                             lostoccio = 0;
                             stateio = 10;
                             countio = 0; //reset counter
                             modeio = 0; //toggle relay to 2R mode
-                            //preoutio = ABSENT; //clear preset out
                         }
                     } else { //preset is PRESENT
                         stateio = 30; //occupied lost mode ended
-                        //preoutio = ABSENT; //clear preset out as we stay in 3R mode due to preset
                     }
 				break;
-				//return values
-				if (mode[j] != modeio){
-                    mode[j] = modeio;	//Set mode out if changed. To avoid rattling relay
-                    //Must also generate a mode message to indicate a mode change
-                    //Can be 3 different messages: 2R, 3R and 3R forced by preset
-                }
-                //Must also generate a occupancy message when state changes
-                //Could probably be a generic message as any normal occupancy detector would do
-                //Double check with Luc
-                
-				//if (preout[j] != preoutio) {preout[j] = preoutio;}
-				if (prein[j] != preinio) {prein[j] = preinio;}
-                count1T[j] = countio;
-				state[j] = stateio;
-				lostocc[j] = lostoccio;
-				pass[j] = passio;
-                forced[j] = forcedio;
-                forcedcount[j] = forcedcountio;
-				//Check if reverseloop is needed
-				if ((rloop == 1) && (j == 3)){//For now only section 3 as reverseloop detector and section 4 then used for reversing the loop
-					reverseLoop();
-				}
-			}
+			}                
+            //return values
+            mode[channelCounter] = modeio;
+            if (prein[channelCounter] != preinio) {prein[channelCounter] = preinio;}
+            count1T[channelCounter] = countio;
+            if (state[channelCounter] != stateio){//Only write if state changes as it helps with debugging
+                state[channelCounter] = stateio;
+            }            
+            
+            lostocc[channelCounter] = lostoccio;
+            pass[channelCounter] = passio;
+            forced[channelCounter] = forcedio;
+            forcedcount[channelCounter] = forcedcountio;
+            //Check if reverseloop is needed
+            if ((rloop == 1) && (channelCounter == CHANNELS)){//For now only section 3 as reverseloop detector and section 4 then used for reversing the loop
+                reverseLoop();
+            }
 			break;
 			case 1: //reverseloop mode
 				rloop = 1;
 			break;
 			case 2: //Permanent 3R
 				//Just set the relay to 3R mode
-				for (a = 0; 3; a++){
-					if (mode[a] != 1) {
-					mode[a] = 1;
-					state[a] = 30;
-                    }
+                if (mode[channelCounter] != 1) {
+                    mode[channelCounter] = 1;
+                    state[channelCounter] = 30;
                 }
 			break;
 		}
+        
 	}
+    //LATCH mode values to Port Latch if changed only to avoid rattling relay
+    if (MODE1W != mode[0]){MODE1W = mode[0];}
+    if (MODE2W != mode[1]){MODE2W = mode[1];}
+    if (MODE3W != mode[2]){MODE3W = mode[2];}
+    if (MODE4W != mode[3]){MODE4W = mode[3];}
 }
 
 

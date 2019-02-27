@@ -15,15 +15,22 @@
 struct io2Pin io2Pins[4];
 
 void io2PinMapping(){
-    //To map which of the I/O pins will be used as a mode output
+    //To map which of the CANMIO I/O pins will be used as a mode output
     io2Pins[0].section = 0; //1
-    io2Pins[0].io = 3;
+    io2Pins[0].io = 2;
     io2Pins[1].section = 1; //2
-    io2Pins[1].io = 7;
+    io2Pins[1].io = 6;
     io2Pins[2].section = 2; //3
     io2Pins[2].io = 11;
     io2Pins[3].section = 3; //4
-    io2Pins[3].io = 15;  
+    io2Pins[3].io = 14;  
+    
+    //Little hijack to also preset the state
+    //state[0] = 88;
+    //state[1] = 88;
+    //state[2] = 88;
+    //state[3] = 88;
+    
 }
 
 WORD modifyEN(WORD workEN){

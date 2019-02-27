@@ -178,7 +178,7 @@ extern void clearEvents(unsigned char i);
 extern void processEvent(BYTE eventIndex, BYTE* message);
 extern void processActions(void);
 
-#include "../CBUSlib/events.h"
+#include "events.h"
 
 extern BOOL sendInvertedProducedEvent(PRODUCER_ACTION_T action, BOOL state, BOOL invert);
 

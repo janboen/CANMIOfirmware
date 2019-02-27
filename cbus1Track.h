@@ -21,56 +21,75 @@ extern "C" {
 //1Track specific pins
 #define OCC1 PORTCbits.RC0
 #define SHORT1 PORTCbits.RC1
-#define MODE1 PORTCbits.RC2
-//#define ANA1 PORTCbits.RC3
+#define MODE1 PORTCbits.RC2 //Output
+#define MODE1W LATCbits.LATC2 //Output must use Latch
+//#define ANA1 PORTCbits.RC3 = not ANA
     
 #define OCC2 PORTCbits.RC4
 #define SHORT2 PORTCbits.RC5
-#define MODE2 PORTCbits.RC6
-//#define ANA2 PORTCbits.RC3
+#define MODE2 PORTCbits.RC6 //Output
+#define MODE2W LATCbits.LATC6 //Output must use Latch
+//#define ANA2 PORTCbits.RC7 = not ANA
 
 #define OCC3 PORTBbits.RB0
 #define SHORT3 PORTBbits.RB1
-#define MODE3 PORTBbits.RB4
-//#define ANA3 PORTCbits.RB5
+#define MODE3 PORTBbits.RB5 //Output
+#define MODE3W LATBbits.LATB5 //Output must use Latch
+//#define ANA3 PORTBbits.RB4
 
 #define OCC4 PORTAbits.RA1
 #define SHORT4 PORTAbits.RA0
-#define MODE4 PORTAbits.RA3
-//#define ANA4 PORTCbits.RA4
+#define MODE4 PORTAbits.RA3 //Output
+#define MODE4W LATAbits.LATA3 //Output must use Latch
+//#define ANA4 PORTAbits.RA4
 
 //1Track specific defines
 #define DEV0 //can also have values 1 or 2 depending on what we want to do
 //#define DEV1 
 //#define DEV2 
+
 #ifdef DEV0 //Standard mode
     #define ABSENT 1
     #define PRESENT 0
+    #define ONEEIGHTSEC 8
+    #define QUARTERSEC 16
+    #define HALFSEC 30
+    #define ONESEC 60
+    #define FOURSEC 240
+    #define DEVMODE 0 
 #endif
 
-#ifdef DEV1 //Development mode which discards the preset
+#ifdef DEV1 //Development mode with shorter timings
     #define ABSENT 1
     #define PRESENT 0
+    #define ONEEIGHTSEC 1
+    #define QUARTERSEC 2
+    #define HALFSEC 3
+    #define ONESEC 6
+    #define FOURSEC 24
+    #define DEVMODE 1
 #endif
 
-#ifdef DEV2 //Development mode which discards the preset and uses active high logic
+#ifdef DEV2 //Development mode with shorter timings and uses active high logic
     #define ABSENT 0
     #define PRESENT 1
+    #define ONEEIGHTSEC 1
+    #define QUARTERSEC 2
+    #define HALFSEC 3
+    #define ONESEC 6
+    #define FOURSEC 24
+    #define DEVMODE 0
 #endif
 
-#define  ONEEIGHTSEC 8
-#define  QUARTERSEC 16
-#define  HALFSEC 30
-#define  ONESEC 60
-#define  FOURSEC 240
-    
 #define  STDMODE 0x81
 #define  RLMODE 0x82
-#define  THREEMODE 0x83
+#define  THREEMODE 0x83    
+#define  CHANNELS 4
 
 //Define & set global variables
 
 extern TickValue nowTime;
+extern unsigned char channelCounter;
 extern unsigned char countio;
 extern unsigned char count1T[];
 extern char maxlostocc;
@@ -85,7 +104,7 @@ extern unsigned char lostoccio;
 extern unsigned char lostocc[];
 extern BOOL passio;
 extern BOOL pass[];
-extern BOOL occupied;
+extern BOOL occio;
 extern BOOL senseio;
 extern BOOL preinio;
 extern BOOL prein[];
@@ -106,7 +125,8 @@ extern unsigned char trackMode;
 extern unsigned char tmrbit;
 extern unsigned char tic;
 extern unsigned char tac;
-    
+
+void init1TrackVars(void);
 unsigned char ticTac(void);
 void section2PinMapping(void);
 void initEventMods(void);
