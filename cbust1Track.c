@@ -58,9 +58,9 @@ unsigned char usepreinio;
 unsigned char useforced;
 //unsigned char dev;
 unsigned char trackMode;
-unsigned char tmrbit;
-unsigned char tic;
-unsigned char tac;   
+BOOL tmrbit;
+BOOL tic;
+BOOL tac;   
     
 /* New code CBUS protocol and MERG CANMIO pic based hardware
 The hardware input for pre in is dropped as well as the pre out outputs as this board only has 16 usable pins.
@@ -133,17 +133,16 @@ void init1TrackVars(void){
     //unsigned char dev = 0;
     trackMode = 0; //Case variable for holding the software mode, has to be read from memory and external pins
     tmrbit = 0;
-    tic = 0;
-    tac = 1;  
+    tic = 1;
+    tac = 0;  
 }
 
 unsigned char ticTac(void){
     //From the timer bits read the second byte first bit so use a mask of 0x01
-    //This will flip every 16,384 ms as it has to pass 1024 ticks at 16 us per tick
+    //This will flip every 32,768 ms
     
     nowTime.Val = tickGet();
-    tmrbit = nowTime.byte.b1 && 0x01; // this should neatly produce 0 or 1 as the lowest bit is only returned. 
-    //If want to use other bits then must also use bitwise operations
+    tmrbit = (nowTime.byte.b0 >> TMRSHIFT) & 0b00000001; // this should neatly produce 0 or 1
 	if (tmrbit == tic) {
         tic = !tic;
     }

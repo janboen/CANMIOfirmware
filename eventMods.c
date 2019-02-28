@@ -24,13 +24,7 @@ void io2PinMapping(){
     io2Pins[2].io = 11;
     io2Pins[3].section = 3; //4
     io2Pins[3].io = 14;  
-    
-    //Little hijack to also preset the state
-    //state[0] = 88;
-    //state[1] = 88;
-    //state[2] = 88;
-    //state[3] = 88;
-    
+     
 }
 
 WORD modifyEN(WORD workEN){

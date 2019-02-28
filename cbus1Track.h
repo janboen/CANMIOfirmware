@@ -18,6 +18,11 @@
 extern "C" {
 #endif
     
+//1Track specific defines
+#define DEV0 //can also have values 1 or 2 depending on what we want to do
+//#define DEV1 
+//#define DEV2 
+    
 //1Track specific pins
 #define OCC1 PORTCbits.RC0
 #define SHORT1 PORTCbits.RC1
@@ -43,23 +48,20 @@ extern "C" {
 #define MODE4W LATAbits.LATA3 //Output must use Latch
 //#define ANA4 PORTAbits.RA4
 
-//1Track specific defines
-#define DEV0 //can also have values 1 or 2 depending on what we want to do
-//#define DEV1 
-//#define DEV2 
-
 #ifdef DEV0 //Standard mode
+    #define TMRSHIFT 7
     #define ABSENT 1
     #define PRESENT 0
-    #define ONEEIGHTSEC 8
-    #define QUARTERSEC 16
-    #define HALFSEC 30
-    #define ONESEC 60
-    #define FOURSEC 240
+    #define ONEEIGHTSEC 4
+    #define QUARTERSEC 8
+    #define HALFSEC 15
+    #define ONESEC 30
+    #define FOURSEC 120
     #define DEVMODE 0 
 #endif
 
 #ifdef DEV1 //Development mode with shorter timings
+    #define TMRSHIFT 6
     #define ABSENT 1
     #define PRESENT 0
     #define ONEEIGHTSEC 1
@@ -71,6 +73,7 @@ extern "C" {
 #endif
 
 #ifdef DEV2 //Development mode with shorter timings and uses active high logic
+    #define TMRSHIFT 6
     #define ABSENT 0
     #define PRESENT 1
     #define ONEEIGHTSEC 1
@@ -78,7 +81,7 @@ extern "C" {
     #define HALFSEC 3
     #define ONESEC 6
     #define FOURSEC 24
-    #define DEVMODE 0
+    #define DEVMODE 1
 #endif
 
 #define  STDMODE 0x81
@@ -122,9 +125,9 @@ extern unsigned char usepreinio;
 extern unsigned char useforced;
 extern unsigned char dev;
 extern unsigned char trackMode;
-extern unsigned char tmrbit;
-extern unsigned char tic;
-extern unsigned char tac;
+extern BOOL tmrbit;
+extern BOOL tic;
+extern BOOL tac;
 
 void init1TrackVars(void);
 unsigned char ticTac(void);

@@ -298,26 +298,26 @@ int main(void) @0x800 {
             trackCoreLogic(); // Check all 4 channels of 1Track but not yet generate/consume messages
         }
         
-        /*if (started) {
-#ifdef SERVO
-            if (tickTimeSince(lastServoStartTime) > 5*HALF_MILLI_SECOND) {
-                startServos();  // call every 2.5ms
-                lastServoStartTime.Val = tickGet();
-            }
-#endif
-            if (tickTimeSince(lastInputScanTime) > 5*ONE_MILI_SECOND) {
-                inputScan();    // Strobe inputs for changes
-                lastInputScanTime.Val = tickGet();
-            }
-            if (tickTimeSince(lastActionPollTime) > 100*ONE_MILI_SECOND) {
-                processActions();
-                processOutputs();
-                lastActionPollTime.Val = tickGet();
-            }
-#ifdef ANALOGUE
-            pollAnalogue();
-#endif
-        }*/
+        if (started) {
+            #ifdef SERVO
+                        if (tickTimeSince(lastServoStartTime) > 5*HALF_MILLI_SECOND) {
+                            startServos();  // call every 2.5ms
+                            lastServoStartTime.Val = tickGet();
+                        }
+            #endif
+                        if (tickTimeSince(lastInputScanTime) > 5*ONE_MILI_SECOND) {
+                            inputScan();    // Strobe inputs for changes
+                            lastInputScanTime.Val = tickGet();
+                        }
+                        if (tickTimeSince(lastActionPollTime) > 100*ONE_MILI_SECOND) {
+                            processActions();
+                            processOutputs();
+                            lastActionPollTime.Val = tickGet();
+                        }
+            #ifdef ANALOGUE
+                        pollAnalogue();
+            #endif
+        }
         // Check for any flashing status LEDs
         checkFlashing();
      } // main loop

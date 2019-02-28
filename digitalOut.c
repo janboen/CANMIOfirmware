@@ -81,7 +81,7 @@ void initOutputs(void) {
  * Start a digital output. Handles inverted outputs and pulsed outputs. Sends the
  * produced events.
  * Handles:
- * * Onput event invert
+ * * Output event invert
  * * Output OFF event disable
  * * Output event invert
  * * Flash
