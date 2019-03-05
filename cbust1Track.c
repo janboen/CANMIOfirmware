@@ -421,10 +421,36 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
         
 	}
     //LATCH mode values to Port Latch if changed only to avoid rattling relay
-    if (MODE1W != mode[0]){MODE1W = mode[0];}
-    if (MODE2W != mode[1]){MODE2W = mode[1];}
-    if (MODE3W != mode[2]){MODE3W = mode[2];}
-    if (MODE4W != mode[3]){MODE4W = mode[3];}
+    if (MODE1W != mode[0]){
+        if (mode[0] = 0){
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[0].io));
+        } else {
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[0].io));
+        }
+        //MODE1W = mode[0];
+    }
+    if (MODE2W != mode[1]){
+        if (mode[1] = 0){
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[1].io));
+        } else {
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[1].io));
+        }
+        //MODE2W = mode[1];
+    }
+    if (MODE3W != mode[2]){
+        if (mode[2] = 0){
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[2].io));
+        } else {
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[2].io));
+        }
+        //MODE3W = mode[2];
+    }
+    if (MODE4W != mode[3]){
+        if (mode[3] = 0){
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[3].io));
+        } else {
+            pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[3].io));
+        }
+        //MODE4W = mode[3];
+    }
 }
-
-

@@ -107,7 +107,7 @@ void setOutputState(unsigned char io, CONSUMER_ACTION_T action, unsigned char ty
             // this should never happen
             return;
         case TYPE_OUTPUT:
-//            setDigitalOutput(io, action);
+            //setDigitalOutput(io, action); //Comment removed by Jan to see what happens
             return;
 #ifdef BOUNCE
         case TYPE_BOUNCE:
