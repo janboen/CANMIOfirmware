@@ -56,7 +56,6 @@ unsigned char forcedio;
 unsigned char forcedcountio;
 unsigned char usepreinio;
 unsigned char useforced;
-//unsigned char dev;
 unsigned char trackMode;
 BOOL tmrbit;
 BOOL tic;
@@ -108,13 +107,14 @@ void init1TrackVars(void){
         forced[c] = 0;
         forcedcount[c] = 0;
     }
-    if (DEVMODE == 0){//Normal mode with standard timings
+    #ifdef DEV0
         maxlostocc = 8; // x 125 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
         maxshort = 30;  // maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
-    } else {//Simulation mode with shorter timings
+    #endif
+    #ifndef DEV0 //Simulation mode with shorter timings
         maxlostocc = 1; // x 16 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
         maxshort = 2;  // maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
-    }
+    #endif
     rlsense = 0;
     rloop = 0; //holds the current switch/case state value of the reversing loop
     timeio = 0;
@@ -418,39 +418,38 @@ void trackCoreLogic(){ //One invocation of this method will handle the 4 channel
                 }
 			break;
 		}
-        
 	}
     //LATCH mode values to Port Latch if changed only to avoid rattling relay
     if (MODE1W != mode[0]){
-        if (mode[0] = 0){
+        if (mode[0] == 0){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[0].io));
         } else {
             pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[0].io));
         }
-        //MODE1W = mode[0];
+        MODE1W = mode[0];
     }
     if (MODE2W != mode[1]){
-        if (mode[1] = 0){
+        if (mode[1] == 0){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[1].io));
         } else {
             pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[1].io));
         }
-        //MODE2W = mode[1];
+        MODE2W = mode[1];
     }
     if (MODE3W != mode[2]){
-        if (mode[2] = 0){
+        if (mode[2] == 0){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[2].io));
         } else {
             pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[2].io));
         }
-        //MODE3W = mode[2];
+        MODE3W = mode[2];
     }
     if (MODE4W != mode[3]){
-        if (mode[3] = 0){
+        if (mode[3] == 0){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[3].io));
         } else {
             pushAction(ACTION_IO_CONSUMER_OUTPUT_ON(io2Pins[3].io));
         }
-        //MODE4W = mode[3];
+        MODE4W = mode[3];
     }
 }
