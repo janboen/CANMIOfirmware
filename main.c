@@ -29,7 +29,7 @@
 /*
  * File:   main.c
  * Author: Ian Hogg
- * Edited by: Jan Boen
+ * Editor: Jan Boen
  * 
  * This is the main for the Configurable CANMIO module.
  * Has been extended so it also handles the 1Track use case.
@@ -140,6 +140,7 @@
 #include "nvCache.h"
 #endif
 #include "cbus1Track.h"
+#include "eventMods.h"
 
 #ifdef __18CXX
 void ISRLow(void);
@@ -157,19 +158,19 @@ const rom Config configs[NUM_IO] = {
     // TODO check ordering of 8-15
     {11, 'C', 0, 0xFF},   //0
     {12, 'C', 1, 0xFF},   //1
-    {13, 'C', 2, 0xFF},   //2
+    {13, 'C', 2, 0xFF},   //2 (OUT))
     {14, 'C', 3, 0xFF},   //3
     {15, 'C', 4, 0xFF},   //4
     {16, 'C', 5, 0xFF},   //5
-    {17, 'C', 6, 0xFF},   //6
+    {17, 'C', 6, 0xFF},   //6 (OUT))
     {18, 'C', 7, 0xFF},   //7
     {21, 'B', 0, 10},   //8
     {22, 'B', 1, 8},   //9
     {25, 'B', 4, 9},   //10
-    {26, 'B', 5, 0xFF},   //11
+    {26, 'B', 5, 0xFF},   //11 (OUT))
     {3,  'A', 1, 1},   //12
     {2,  'A', 0, 0},   //13
-    {5,  'A', 3, 3},   //14
+    {5,  'A', 3, 3},   //14 (OUT))
     {7,  'A', 5, 4}    //15
 };
 
@@ -273,12 +274,13 @@ int main(void) @0x800 {
     lastInputScanTime.Val = startTime.Val;
     lastActionPollTime.Val = startTime.Val;
 
-    //If the node has been configured for 1Track then also intialise the IO to PIN mapping 
-    if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= THREEMODE)){
-        io2PinMapping();
-    }
+    initialise();
     
-    initialise(); 
+    #ifndef PROD
+        set1TrackPorts(); //1Track debug only
+    #endif
+    io2PinMapping(); //1Track    
+    init1TrackVars(); //1Track
 
     while (TRUE) {
         // Startup delay for CBUS about 2 seconds to let other modules get powered up
@@ -294,29 +296,29 @@ int main(void) @0x800 {
         FLiMSWCheck();  // Check FLiM switch for any mode changes
         
         //If the node has been configured for 1Track then also execute the 1Track logic 
-        if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= THREEMODE)){
+        if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= XMODE)){
             trackCoreLogic(); // Check all 4 channels of 1Track but not yet generate/consume messages
         }
         
         if (started) {
-#ifdef SERVO
-            if (tickTimeSince(lastServoStartTime) > 5*HALF_MILLI_SECOND) {
-                startServos();  // call every 2.5ms
-                lastServoStartTime.Val = tickGet();
-            }
-#endif
-            if (tickTimeSince(lastInputScanTime) > 5*ONE_MILI_SECOND) {
-                inputScan();    // Strobe inputs for changes
-                lastInputScanTime.Val = tickGet();
-            }
-            if (tickTimeSince(lastActionPollTime) > 100*ONE_MILI_SECOND) {
-                processActions();
-                processOutputs();
-                lastActionPollTime.Val = tickGet();
-            }
-#ifdef ANALOGUE
-            pollAnalogue();
-#endif
+            #ifdef SERVO
+                        if (tickTimeSince(lastServoStartTime) > 5*HALF_MILLI_SECOND) {
+                            startServos();  // call every 2.5ms
+                            lastServoStartTime.Val = tickGet();
+                        }
+            #endif
+                        if (tickTimeSince(lastInputScanTime) > 5*ONE_MILI_SECOND) {
+                            inputScan();    // Strobe inputs for changes
+                            lastInputScanTime.Val = tickGet();
+                        }
+                        if (tickTimeSince(lastActionPollTime) > 100*ONE_MILI_SECOND) {
+                            processActions();
+                            processOutputs();
+                            lastActionPollTime.Val = tickGet();
+                        }
+            #ifdef ANALOGUE
+                        pollAnalogue();
+            #endif
         }
         // Check for any flashing status LEDs
         checkFlashing();
@@ -466,7 +468,7 @@ BOOL checkCBUS( void ) {
 
     if (cbusMsgReceived( 0, (BYTE *)msg )) {
         shortFlicker();         // short flicker LED when a CBUS message is seen on the bus
-        if (parseCBUSMsg(msg)) {               // Process the incoming message
+        if (parseCBUSMsg(msg)) {// Process the incoming message
             longFlicker();      // extend the flicker if we processed the message
             return TRUE;
         }
@@ -605,4 +607,3 @@ void ISRHigh(void) {
     }
 #endif
 }
-
