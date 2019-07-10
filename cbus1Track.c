@@ -126,7 +126,7 @@ void init1TrackVars(void){
         NV->io[6].type = 1;
         NV->io[11].type = 1;
         NV->io[14].type = 1;
-        NV->spare[9] = 0x01;
+        NV->spare[9] = 0x10;
         NV->spare[10] = 0x81;        
     #endif
     nowTime.Val = tickGet();
@@ -136,11 +136,11 @@ void init1TrackVars(void){
     for (cCount = 0; cCount < 4; cCount++){
         count1T[cCount] =  0;
         sectionTime[cCount] = 0;
-       if (hwVersion[cCount] == 0){//for v0 hardware from 2018
-            state[cCount] = 10;// stores the state value of a section
+       if ((hwVersion[cCount] == 0) || (hwVersion[cCount] == 2)){//for v0 hardware from 2018
+            state[cCount] = IDLE;// stores the state value of a section
         }
        if (hwVersion[cCount] == 1){//for v1 hardware from June 2019
-            state[cCount] = 30;// stores the state value of a section
+            state[cCount] = THREERAIL;// stores the state value of a section
         }
         lostocc[cCount] = 0;
         pass[cCount] = 0;
@@ -153,12 +153,12 @@ void init1TrackVars(void){
     }
     maxlostocc = 8; // x 150 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
     maxshort = 30;  // maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
-    rlsense = 0;
+    rlsense = RLFREE;
     rloop = 0; //holds the current switch/case state value of the reversing loop
     previousState = 0;
     occ2Rio = FALSE;
     senseio = FALSE;
-    rlstate = 0;
+    rlstate = RLFREE; //Reverseloop is free
     trackMode = 0; //Case variable for holding the software mode, has to be read from memory
     tmrbit = 0;
     tic = 1;
@@ -247,28 +247,28 @@ The 3 sections will provide a stable input for the reversing loop code
 //Reverse Loop Logic
 void reverseLoop(void) {
     // Reverse Loop
-    // state can be uncertain (0), via S1 (1) or via S3 (3)
+    // state can be uncertain (RLFREE), via S1 (RLVIAS1) or via S3 (RLVIAS3)
     // Uncertain state exists when S2 is occupied and when no train entered via S1 or S3
     // This can happen during a power cycle/outage
     // In no case shall all 3 sections be occupied at the same time when starting the system
     // The 3 sections will provide a stable input for the reversing loop code
     state[3] = REVERSE; // Force state to 99 to show RL is being used    
-    if (rlstate == 0) { //Take snapshot of usage while in idle state
+    if (rlstate == RLFREE) { //Take snapshot of usage while in idle state
         count1T[3] = 0; // reset counter
         if (state[0] == TWORAIL) { // Via S1
-            rlsense = 1;
+            rlsense = RLVIAS1;
             mode[3] = freeMODE[3];
-            rlstate = 1;
+            rlstate = RLBUSY;
         }
         if (state[2] == TWORAIL) { // Via S3
-            rlsense = 3;
+            rlsense = RLVIAS3;
             mode[3] = !freeMODE[3];
-            rlstate = 1;
+            rlstate = RLBUSY;
         }
         if ((state[1] == TWORAIL) && (rlsense == 0)) { // Uncertain. Will assume Via S3
-            rlsense = 3;
+            rlsense = RLVIAS3;
             mode[3] = !freeMODE[3];
-            rlstate = 1;
+            rlstate = RLBUSY;
         }
         //We will replace the local logic and may in the future replace with consuming relevant events
         if (preout[1] == TRUE) { // S2 is in 3-rail mode so preset S3
@@ -282,20 +282,20 @@ void reverseLoop(void) {
             softprein[1] = FALSE;
         }
     }
-    if (rlstate == 1) { // Will use the determined sense as long as occupied
-        if ((rlsense == 1) && (state[1] == TWORAIL)) { // Via S1 - change mode
+    if (rlstate == RLBUSY) { // Will use the determined sense as long as occupied
+        if ((rlsense == RLVIAS1) && (state[1] == TWORAIL)) { // Via S1 - change mode
             mode[3] = !freeMODE[3];
             count1T[3] = 0; // reset counter
         }
-        if ((rlsense == 3) && (state[0] == TWORAIL)) { // Via S3
+        if ((rlsense == RLVIAS3) && (state[0] == TWORAIL)) { // Via S3
             mode[3] = freeMODE[3];
             count1T[3] = 0; // reset counter
         }
         if ((state[0] == IDLE) && (state[1] == IDLE) && (state[2] == IDLE)) { // reverse loop is probably free
             if (count1T[3] >= SHORTWAIT) { // waited long enough
-                rlstate = 0; // reverse loop idle
+                rlstate = RLFREE; // reverse loop idle
                 mode[3] = !freeMODE[3]; // relay switched to via S1
-                rlsense = 0; // sense set to uncertain
+                rlsense = RLFREE; // sense set to uncertain
                 count1T[3] = 0; // reset counter
             }
         } else {
@@ -389,10 +389,10 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
         previousState = state[cCount];
 		//Check current section
 		//Possible valid states:
-		//Sense Occ     meaning
-		//Pres   X      Short circuit
-		//Abs    Pres   Busy
-		//Abs    Abs    Idle/PoT
+		//SENSE  OCC    meaning
+		//TRUE   X      Short circuit
+		//FALSE  TRUE   Busy
+		//FALSE  FALSE  Idle/PoT
         switch (state[cCount]) {
             case IDLE:  //Idle mode
                 if (senseio == TRUE) { //This section is possibly shortened
@@ -423,13 +423,14 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
             break;
             case TWORAIL:  //2R occupied mode
                 forced[cCount] = FALSE; //Not forced from 20 to 30
+                prein[cCount] = FALSE; //Can't be preset when in 2R
                 if (senseio == TRUE) { //possible short circuit
-                    mode[cCount] = !freeMODE[cCount]; //just to be safe toggle relay &
+                    mode[cCount] = !freeMODE[cCount]; //just to be safe toggle relay to 3R mode &
                     state[cCount] = TRANSIT; //switch to 3R transition mode
                     forced[cCount] = TRUE; //Being forced from 20 to 30
                 }
                 if (occ2Rio == FALSE) { //section free
-                    if (count1T[cCount] >= SHORTWAIT) { //waited long enough
+                    if (count1T[cCount] >= QUARTERSEC) { //waited long enough
                         mode[cCount] = freeMODE[cCount];  //set relay to 2R
                         state[cCount] = IDLE; //set Idle state
                     }
@@ -437,9 +438,9 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                     count1T[cCount] = 0; //reset counter
                 }
             break;
-            case TRANSIT:  //3R Transition mode
-                if (count1T[cCount] >= SHORTWAIT) { //waited long enough
-                    mode[cCount] = !freeMODE[cCount];  //set relay to 3R
+            case TRANSIT:  //3R Transition mode - to allow sensor stabilisation
+                if (count1T[cCount] >= QUARTERSEC) { //waited long enough
+                    mode[cCount] = !freeMODE[cCount];  //Just to be safe set relay to 3R (again)
                     state[cCount] = THREERAIL; //3R mode
                     count1T[cCount] = 0;//reset counter
                 }
@@ -453,10 +454,15 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                         }
                     }
                 }
-                if (occ3Rio == TRUE){ // If the section is occupied then the preset has become irrelevant
-                    prein[cCount] = FALSE;
+                if (occ3Rio == TRUE){ // If the section is occupied 
+                    if (count1T[cCount] >= SHORTWAIT) { //waited long enough
+                        prein[cCount] = FALSE; //then the preset has become irrelevant
+                        //Don't reset count1T[cCount] as we may need it in the next section
+                    }
                 }
-                if (forced[cCount] == TRUE) { //Will try to recover from being forced in to state 30 from 20
+                if ((forced[cCount] == TRUE) && (hwVersion[cCount] == 0)) {
+                    //Only for v0 hw will try to recover from being forced in to state 30 from 20
+                    //v1 hardware handles this hardware wise
                     if (count1T[cCount] >= FOURSEC) { //Waited long enough so let's try
                         count1T[cCount] = 0; //reset counter
                         mode[cCount] = freeMODE[cCount]; //free relay
@@ -483,6 +489,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                         lostocc[cCount] = 0;
                         mode[cCount] = freeMODE[cCount];  //set relay to 2R
                         state[cCount] = IDLE;
+                        //prein[cCount] = FALSE; //adding this line more for testing purposes
                         count1T[cCount] = 0; //reset counter
                     }
                 } else { //preset is TRUE
