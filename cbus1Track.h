@@ -24,13 +24,19 @@ extern "C" {
 //#define DEV //10X shorter timing as PROD and sets I/O pins 
 
 //1Track specific statuses
-#define IDLE 10
-#define TWORAIL 20
-#define TRANSIT 23
+#define TWORAIL 10 //2R modes are less than IDLE mode
+#define IDLE 20 //Default mode
+#define TRANSIT 25 //All modes larger than IDLE and less than 90 are 3R related
 #define THREERAIL 30
 #define UNCERTAIN 88
+#define SPECIALSTATES 90 //Modes from 90 are special cases    
 #define CROSS 98
 #define REVERSE 99
+    
+#define RLFREE 0 //Reverseloop free
+#define RLBUSY 1 //Reverseloop free
+#define RLVIAS1 1 //RL entered via S1
+#define RLVIAS3 3 //RL entered via S3
     
 //1Track specific pins
 #define OCC2R1 PORTCbits.RC0
@@ -69,6 +75,7 @@ extern "C" {
 #define QUARTERSEC 5
 #define HALFSEC 10
 #define ONESEC 20
+#define TWOSEC 40
 #define FOURSEC 80
 
 #define STDMODE 0x81 //Standard 1Track mode
@@ -109,6 +116,7 @@ extern BOOL tac;
 //Rework 29 June 19 new variables
 extern unsigned char hwProfile[];
 extern unsigned char hwVersion[];
+extern BOOL freeMODE[];
 extern BOOL hwOCC2R[];
 extern BOOL hwOCC3R[];
 extern BOOL hwSENSE[];

@@ -231,7 +231,7 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
     unsigned char io;
     unsigned char ca;
     int action;
-    BOOL executeCheck; //1Track specific
+    BOOL executeEvent; //1Track specific
 
     BYTE opc = getEVs(tableIndex);
 #ifdef SAFETY
@@ -256,32 +256,38 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
                     } else {
                         io = CONSUMER_IO(action&ACTION_MASK);
                         ca = CONSUMER_ACTION(action&ACTION_MASK);
-                        //executeCheck = TRUE;//1Track related
-                        switch (NV->io[io].type) {
-                            case TYPE_OUTPUT:
-                                if (NV->io[io].flags & FLAG_EXPEDITED_ACTIONS) {
-                                    setExpeditedActions();
-                                }
-                                executeCheck = executeAction (io, ca, action);// 1Track related
-                                // fall through
-                            case TYPE_SERVO:
-                            case TYPE_BOUNCE:
-                                if (ca == ACTION_IO_CONSUMER_1) {
-                                    // action 1 (EV) must be converted to 2(ON)
-                                    action++;
-                                }
-                            // 1Track specific addition, will break without any action when the local state requires it
-                                if (executeCheck == TRUE){
+                        // 9 Jul 19: Latest thinking: All outputs are controlled by 1Track and therefore we don't want
+                        // the generic logic to change output states based on learned events.
+                        // We pass to 1Track logic and decide there what to do
+                        // 1Track specific addition
+                        // If the logic made it to here we're sure it is an ON event
+                        executeEvent = TRUE;
+                        if ((NV->spare[10] >= 0x80) && (NV->spare[10] < 0x90)){// Only execute when in 1Track mode
+                            executeEvent = executeAction (io, TRUE);// 1Track related
+                        }
+                    if (executeEvent == TRUE){// 1Track related
+                            switch (NV->io[io].type) {
+                                case TYPE_OUTPUT:
+                                    if (NV->io[io].flags & FLAG_EXPEDITED_ACTIONS) {
+                                        setExpeditedActions();
+                                    }
+                                    // fall through
+                                case TYPE_SERVO:
+                                case TYPE_BOUNCE:
+                                    if (ca == ACTION_IO_CONSUMER_1) {
+                                        // action 1 (EV) must be converted to 2(ON)
+                                        action++;
+                                    }
                                     pushAction((CONSUMER_ACTION_T)action);
-                                }
-                                setNormalActions();
-                            break;
-                            case TYPE_MULTI:
-                                pushAction((CONSUMER_ACTION_T)action);
-                            break;
-                            default:
-                                // shouldn't happen - just ignore
-                            break;
+                                    setNormalActions();
+                                break;
+                                case TYPE_MULTI:
+                                    pushAction((CONSUMER_ACTION_T)action);
+                                break;
+                                default:
+                                    // shouldn't happen - just ignore
+                                break;
+                            }
                         }
                     }
                 }
@@ -309,31 +315,40 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
                     } else {
                         io = CONSUMER_IO(action);
                         ca = CONSUMER_ACTION(action);
-                        switch (NV->io[io].type) {
-                            case TYPE_OUTPUT:
-                                if (NV->io[io].flags & FLAG_EXPEDITED_ACTIONS) {
-                                    setExpeditedActions();
-                                }
-                                if (ca == ACTION_IO_CONSUMER_4) {
-                                    // action 4 (Flash) must be converted to 3(OFF)
-                                    action--;
-                                }
-                                // fall through
-                            case TYPE_SERVO:
-                            case TYPE_BOUNCE:
-                                if (ca == ACTION_IO_CONSUMER_1) {
-                                    // action 1 (EV) must be converted to 3(OFF)
-                                    action += 2;
-                                }
-                                pushAction(action|nextSimultaneous);
-                                setNormalActions();
-                                break;
-                            case TYPE_MULTI:
-                                pushAction(action|nextSimultaneous);
-                                break;
-                            default:
-                                // shouldn't happen - just ignore
-                                break;
+                        // See latest reasoning above
+                        // 1Track specific addition, will EXIT without any action when the local state requires it
+                        // If the logic made it to here we're sure it is an OFF event
+                        executeEvent = TRUE;
+                        if ((NV->spare[10] >= 0x80) && (NV->spare[10] < 0x90)){// Only execute when in 1Track mode
+                            executeEvent = executeAction (io, FALSE);// 1Track related
+                        }
+                        if (executeEvent == TRUE){// 1Track related
+                            switch (NV->io[io].type) {
+                                case TYPE_OUTPUT:
+                                    if (NV->io[io].flags & FLAG_EXPEDITED_ACTIONS) {
+                                        setExpeditedActions();
+                                    }
+                                    if (ca == ACTION_IO_CONSUMER_4) {
+                                        // action 4 (Flash) must be converted to 3(OFF)
+                                        action--;
+                                    }
+                                    // fall through
+                                case TYPE_SERVO:
+                                case TYPE_BOUNCE:
+                                    if (ca == ACTION_IO_CONSUMER_1) {
+                                        // action 1 (EV) must be converted to 3(OFF)
+                                        action += 2;
+                                    }
+                                    pushAction(action|nextSimultaneous);
+                                    setNormalActions();
+                                    break;
+                                case TYPE_MULTI:
+                                    pushAction(action|nextSimultaneous);
+                                    break;
+                                default:
+                                    // shouldn't happen - just ignore
+                                    break;
+                            }
                         }
                     }
                 }

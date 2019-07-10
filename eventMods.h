@@ -25,7 +25,7 @@ extern struct io2Pin io2Pins[];
 
 void io2PinMapping();
 WORD modifyEN(WORD);
-BOOL executeAction (unsigned char, unsigned char, int);
+BOOL executeAction (unsigned char, BOOL);
 
 #ifdef	__cplusplus
 }

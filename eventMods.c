@@ -52,7 +52,7 @@ WORD modifyEN(WORD workEN){
 }
 
 //Consumed event action
-BOOL executeAction (unsigned char io, unsigned char ca, int action) {
+BOOL executeAction (unsigned char io, BOOL on) {
     BOOL actionStatus;
     actionStatus = TRUE;
         if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= XMODE)){
@@ -65,17 +65,18 @@ BOOL executeAction (unsigned char io, unsigned char ca, int action) {
                 }
             }
             if (foundEN){//OK there is a match
-                if (state[sectionEN] == IDLE){//the section is idle
-                    actionStatus = TRUE; //action can be done
-                    prein[sectionEN] = TRUE; //this is a preset in for this section
-                } else {//and the section is NOT idle
-                    actionStatus = FALSE; //don't allow an external event to activate the section if it is NOT idle
-                    prein[sectionEN] = FALSE; //this removes the preset in for this section
+                //iot get to the real meaning of an ON or OFF event we must combine with the freeMODE
+                //only works properly with the same hardware version (for now))
+                on = on ^ freeMODE[sectionEN];
+                if (state[sectionEN] == IDLE){//Idle so also not in 2R OCC - was checking on TWORAIL and SPECIALSTATES
+                    if (on == TRUE) {// ON Action
+                        prein[sectionEN] = TRUE; //this is a preset for this section
+                    } else {// OFF action
+                        prein[sectionEN] = FALSE; //this removes the preset in for this section
+                    }
                 }
+                actionStatus = FALSE;
             }
         }    
     return actionStatus; 
 }
-
-    
-
