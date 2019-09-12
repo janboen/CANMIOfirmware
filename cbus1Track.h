@@ -28,6 +28,7 @@ extern "C" {
 #define IDLE 20 //Default mode
 #define TRANSIT 25 //All modes larger than IDLE and less than 90 are 3R related
 #define THREERAIL 30
+#define FORCED3R 33
 #define UNCERTAIN 88
 #define SPECIALSTATES 90 //Modes from 90 are special cases    
 #define CROSS 98

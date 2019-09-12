@@ -17,17 +17,19 @@
  *
  * Created on 9 Feb 2019, 16:26
  * Major update from 19 June 2019
+ * Minor update on 28 Sep 18 to handle v2 IO hardware
  * Added feature to support a fixed cross (vast kruis), removed pre in, pre out functionality.
  * Dropped fixed 3R mode and use this setting for fixed cross
  * Pre in will be used for the future Occ3R changes
  * Fixed cross will use a separate channel with relay and use channel 2 and 3 as feeder channels
  *
  * Rework Sun 30 Jun and later - rewrite so the code better supports different versions of IO boards and internally
- * all logic works with ACTIVE HIGH (TRUE) logic. free = 0 and imolies idle and !free = 1 and implies active
+ * all logic works with ACTIVE HIGH (TRUE) logic. free = 0 and implies idle and !free = 1 and implies active
  * To support different hardware versions of the IO board the following is added
  * 4 bits where, per set of 2 channels 
  * 0000 = v0 - the first prototype version
- * 0001 = v1 - the current prototype version (June 2019) - IO works the other way around from previous version
+ * 0001 = v1 - the prototype version (June 2019) - IO works the other way around from previous version
+ * 0002 = v2 - the prototype version (Aug 2019) - IO works like v0 BUT OCC2R and OCC3R are reversed
  * 
  */
 #include "cbus1Track.h"
@@ -72,7 +74,7 @@ BOOL freeOCC3R[4];
 BOOL freeSENSE[4];
 BOOL freeMODE[4];
 BOOL previousMODE[4];
-unsigned char previousState;
+BOOL changedPREIN[4];
 
 //Various Helper Methods
 void hwProfiler(void){ //Populates various arrays with correct values so multiple different IO hardware versions are supported
@@ -105,14 +107,14 @@ void hwProfiler(void){ //Populates various arrays with correct values so multipl
             freeSENSE[2*cCount+1]= 0;
             freeMODE[2*cCount+1]= 1;
         }        
-        if (hwProfile[cCount] == 2){//v1 hardware, Apr 2019, but with CBUS settings forcing MODE to inverted action
-            freeOCC2R[2*cCount]= 0;
-            freeOCC3R[2*cCount]= 0;
-            freeSENSE[2*cCount]= 0;
+        if (hwProfile[cCount] == 2){//v2 hardware, Aug 2019, supports OCC3R
+            freeOCC2R[2*cCount]= 1;
+            freeOCC3R[2*cCount]= 1;
+            freeSENSE[2*cCount]= 1;
             freeMODE[2*cCount]= 0;
-            freeOCC2R[2*cCount+1]= 0;
-            freeOCC3R[2*cCount+1]= 0;
-            freeSENSE[2*cCount+1]= 0;
+            freeOCC2R[2*cCount+1]= 1;
+            freeOCC3R[2*cCount+1]= 1;
+            freeSENSE[2*cCount+1]= 1;
             freeMODE[2*cCount+1]= 0;
         }          
         spare9 = spare9 >> 4;
@@ -120,6 +122,7 @@ void hwProfiler(void){ //Populates various arrays with correct values so multipl
 }
 
 void init1TrackVars(void){
+
     //set some NV values (saves time during debugging)
     #ifndef PROD
         NV->io[2].type = 1;
@@ -150,12 +153,12 @@ void init1TrackVars(void){
         preout[cCount] = FALSE;
         softprein[cCount] = FALSE; //OUT
         forced[cCount] = FALSE;
+        changedPREIN[cCount] = FALSE;
     }
     maxlostocc = 8; // x 150 ms - consecutive maximum number that sense may be lost in 3R mode before going back to 2R mode
     maxshort = 30;  // maximal number short must be seen before transiting to 3R mode - higher than in PIC as code runs faster. I think...
     rlsense = RLFREE;
     rloop = 0; //holds the current switch/case state value of the reversing loop
-    previousState = 0;
     occ2Rio = FALSE;
     senseio = FALSE;
     rlstate = RLFREE; //Reverseloop is free
@@ -166,6 +169,7 @@ void init1TrackVars(void){
 }
 
 unsigned char ticTac(void){
+    
     lastTime.Val= nowTime.Val;
     nowTime.Val = tickGet();
 	if (nowTime.Val > lastTime.Val) {////Normal situation
@@ -179,7 +183,7 @@ unsigned char ticTac(void){
 }
 
 void getTrackMode(void){
-
+    
     if ((NV->spare[10] != RLMODE) && (NV->spare[10] != XMODE)){
         trackMode = STDMODE;
     }
@@ -252,7 +256,8 @@ void reverseLoop(void) {
     // This can happen during a power cycle/outage
     // In no case shall all 3 sections be occupied at the same time when starting the system
     // The 3 sections will provide a stable input for the reversing loop code
-    state[3] = REVERSE; // Force state to 99 to show RL is being used    
+    // 21 July 19 = adjust the logic so it reacts the same with 2R or 3R, should work
+    state[3] = REVERSE; // Force state to REVERSE to show RL is being used    
     if (rlstate == RLFREE) { //Take snapshot of usage while in idle state
         count1T[3] = 0; // reset counter
         if (state[0] == TWORAIL) { // Via S1
@@ -270,7 +275,7 @@ void reverseLoop(void) {
             mode[3] = !freeMODE[3];
             rlstate = RLBUSY;
         }
-        //We will replace the local logic and may in the future replace with consuming relevant events
+        //3R logic to avoid short circuits
         if (preout[1] == TRUE) { // S2 is in 3-rail mode so preset S3
             softprein[2] = TRUE;
         } else { // S2 is not in 3-rail mode so don't preset S3
@@ -283,19 +288,31 @@ void reverseLoop(void) {
         }
     }
     if (rlstate == RLBUSY) { // Will use the determined sense as long as occupied
-        if ((rlsense == RLVIAS1) && (state[1] == TWORAIL)) { // Via S1 - change mode
-            mode[3] = !freeMODE[3];
-            count1T[3] = 0; // reset counter
+        if (rlsense == RLVIAS1) { // Via S1
+            if (state[1] == TWORAIL) { // Via S1 - normal change mode
+                mode[3] = !freeMODE[3];
+                count1T[3] = 0; // reset counter
+            }
+            if (state[0] == TWORAIL) { // Via S1 - must have changed direction inside reverse loop
+                mode[3] = freeMODE[3]; // Also true while entering the RL but has no impact
+                count1T[3] = 0; // reset counter
+            }            
         }
-        if ((rlsense == RLVIAS3) && (state[0] == TWORAIL)) { // Via S3
-            mode[3] = freeMODE[3];
-            count1T[3] = 0; // reset counter
+        if (rlsense == RLVIAS3) { // Via S3
+            if (state[0] == TWORAIL) { // Via S3 - normal change mode
+                mode[3] = freeMODE[3];
+                count1T[3] = 0; // reset counter
+            }
+            if (state[1] == TWORAIL) { // Via S3 - must have changed direction inside reverse loop
+                mode[3] = !freeMODE[3]; // Also true while entering the RL but has no impact
+                count1T[3] = 0; // reset counter
+            }
         }
         if ((state[0] == IDLE) && (state[1] == IDLE) && (state[2] == IDLE)) { // reverse loop is probably free
             if (count1T[3] >= SHORTWAIT) { // waited long enough
                 rlstate = RLFREE; // reverse loop idle
-                mode[3] = !freeMODE[3]; // relay switched to via S1
-                rlsense = RLFREE; // sense set to uncertain
+                mode[3] = freeMODE[3]; // relay switched to via S1
+                rlsense = RLFREE; // sense set via S1
                 count1T[3] = 0; // reset counter
             }
         } else {
@@ -315,9 +332,11 @@ void fixedCross(void) {
     // in one of the sections
     // By default NS is powered and EW will be toggled and powered as needed
     // While EW is powered NS will not be powered
-    state[3] = CROSS; // Force state to 98 to show cross is being used
-    if (!xInitialised) {//OK first time into this logic so must check both sections for occupancy and handle
-
+    state[3] = CROSS; // Force state to CROSS to show cross is being used
+    if (xInitialised == FALSE) {//OK first time into this logic so must check both sections for occupancy and handle
+        xInitialised = TRUE;
+        //Logic to be added if needed
+        //If not needed then simplify the logic
     } else {//Normal operations where North/South (NS) has power and East/West is toggled as needed
         if (state[1] == IDLE) {//NS section is idle so can look at EW section
             if (state[2] != IDLE) {//OK this section is occupied
@@ -347,17 +366,43 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
     hwProfiler(); //Get 1Track IO HW version
     
     //Latch the values of the I/O ports into variables
-    //Use state[] with logic to chose which type of OCC has to be loaded from new hardware (10)b & software version
-    occ2R[0] = OCC2R1;
-    occ2R[1] = OCC2R2;
-    occ2R[2] = OCC2R3;
-    occ2R[3] = OCC2R4;
+    //Due to an inversion in use of pins of the v2 PCB we tweak the code here to handle the inversion
+    //OCC2R and OCC3R have been switched
+    if (hwVersion[0] > 1) {
+        occ2R[0] = OCC3R1;
+        occ3R[0] = OCC2R1;
+    } else {
+        occ2R[0] = OCC2R1;
+        occ3R[0] = occ2R[0];
+    } 
+    if (hwVersion[1] > 1) {
+        occ2R[1] = OCC3R2;
+        occ3R[1] = OCC2R2;
+    } else {
+        occ2R[1] = OCC2R2;
+        occ3R[1] = occ2R[1];
+    } 
+    if (hwVersion[2] > 1) {
+        occ2R[2] = OCC3R3;
+        occ3R[2] = OCC2R3;
+    } else {
+        occ2R[2] = OCC2R3;
+        occ3R[2] = occ2R[2];
+    } 
+    if (hwVersion[3] > 1) {
+        occ2R[3] = OCC3R4;
+        occ3R[3] = OCC2R4;
+    } else {
+        occ2R[3] = OCC2R4;
+        occ3R[3] = occ2R[3];
+    } 
+
     
-    //For now 2R and 3R OCC are the same. In a newer HW version this will change
-    occ3R[0] = occ2R[0];
-    occ3R[1] = occ2R[0];
-    occ3R[2] = occ2R[0];
-    occ3R[3] = occ2R[0];
+    //For old HW versions 2R and 3R OCC are the same. From v2 HW version this will change
+    if (hwVersion[0] > 1) {occ3R[0] = OCC3R1;} else {occ3R[0] = occ2R[0];} 
+    if (hwVersion[1] > 1) {occ3R[1] = OCC3R2;} else {occ3R[1] = occ2R[1];} 
+    if (hwVersion[2] > 1) {occ3R[2] = OCC3R3;} else {occ3R[2] = occ2R[2];} 
+    if (hwVersion[3] > 1) {occ3R[3] = OCC3R4;} else {occ3R[3] = occ2R[3];} 
 
     sense[0] = SHORT1;
     sense[1] = SHORT2;
@@ -369,6 +414,11 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
     previousMODE[2] = mode[2];
     previousMODE[3] = mode[3];
     
+    changedPREIN[0] = FALSE;
+    changedPREIN[1] = FALSE;
+    changedPREIN[2] = FALSE;
+    changedPREIN[3] = FALSE;
+
     //This is the tic/tac logic we will use for timing below each tic/tac is 50 ms
     tic = ticTac();
     if (tic == tac) {//this section timer counter
@@ -386,7 +436,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
         senseio = sense[cCount] ^ freeSENSE[cCount];
         occ2Rio = occ2R[cCount] ^ freeOCC2R[cCount];
         occ3Rio = occ2Rio; //Later to be occ3Rio[cCount] ^ freeOCC3R[cCount];
-        previousState = state[cCount];
+        changedPREIN[cCount] = FALSE;
 		//Check current section
 		//Possible valid states:
 		//SENSE  OCC    meaning
@@ -414,7 +464,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                     } else {//section free
                         if (prein[cCount] == TRUE) { //preset received
                                 mode[cCount] = !freeMODE[cCount];  //set relay to 3R
-                                state[cCount] = THREERAIL;  //set 3R
+                                state[cCount] = FORCED3R;
                         }
                         count1T[cCount] = 0;
                     }
@@ -454,12 +504,6 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                         }
                     }
                 }
-                if (occ3Rio == TRUE){ // If the section is occupied 
-                    if (count1T[cCount] >= SHORTWAIT) { //waited long enough
-                        prein[cCount] = FALSE; //then the preset has become irrelevant
-                        //Don't reset count1T[cCount] as we may need it in the next section
-                    }
-                }
                 if ((forced[cCount] == TRUE) && (hwVersion[cCount] == 0)) {
                     //Only for v0 hw will try to recover from being forced in to state 30 from 20
                     //v1 hardware handles this hardware wise
@@ -471,6 +515,16 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                     }
                 }
             break;
+            case FORCED3R:  //Forced from 2R to 3R mode
+                if (occ3Rio == TRUE){ // If the section is occupied 
+                    if (count1T[cCount] >= SHORTWAIT) { //waited long enough
+                        prein[cCount] = FALSE; //then the preset has become irrelevant
+                        count1T[cCount] = 0;
+                        changedPREIN[cCount] = TRUE;
+                        state[cCount] = THREERAIL;// Switch to normal 3R mode
+                    }
+                }
+            break;            
             case UNCERTAIN:  //3R occupied lost
                 if (prein[cCount] == FALSE) { //preset is not TRUE
                     if (occ3Rio == FALSE) { //3R occupied lost
@@ -489,7 +543,6 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
                         lostocc[cCount] = 0;
                         mode[cCount] = freeMODE[cCount];  //set relay to 2R
                         state[cCount] = IDLE;
-                        //prein[cCount] = FALSE; //adding this line more for testing purposes
                         count1T[cCount] = 0; //reset counter
                     }
                 } else { //preset is TRUE
@@ -508,7 +561,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
         fixedCross();
     }
     //LATCH mode values to Port Latch if changed only to avoid rattling relay
-    if (previousMODE[0] != mode[0]){
+    if ((previousMODE[0] != mode[0]) || (changedPREIN[0] == TRUE)){
         if (mode[0] == FALSE){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[0].io));
         } else {
@@ -516,7 +569,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
         }
         MODE1W = mode[0];
     }
-    if (previousMODE[1] != mode[1]){
+    if ((previousMODE[1] != mode[1]) || (changedPREIN[1] == TRUE)){
         if (mode[1] == FALSE){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[1].io));
         } else {
@@ -524,7 +577,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
         }
         MODE2W = mode[1];
     }
-    if (previousMODE[2] != mode[2]){
+    if ((previousMODE[2] != mode[2]) || (changedPREIN[2] == TRUE)){
         if (mode[2] == FALSE){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[2].io));
         } else {
@@ -532,7 +585,7 @@ void trackCoreLogic(){ //One invocation of this method will handle the needed ch
         }
         MODE3W = mode[2];
     }
-    if (previousMODE[3] != mode[3]){
+    if ((previousMODE[3] != mode[3]) || (changedPREIN[3] == TRUE)){
         if (mode[3] == FALSE){
             pushAction(ACTION_IO_CONSUMER_OUTPUT_OFF(io2Pins[3].io));
         } else {
