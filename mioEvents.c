@@ -175,6 +175,9 @@ BOOL getDefaultProducedEvent(PRODUCER_ACTION_T paction) {
             case TYPE_OUTPUT:
                 if (paction == ACTION_IO_PRODUCER_OUTPUT(io)) {
                     producedEvent.EN = io + 101;
+                    if ((NV->spare[10] >= 0x80) && (NV->spare[10] < 0x90)){// Only execute when in 1Track mode
+                        producedEvent.EN = modifyEN(producedEvent.EN);// 1Track related
+                    }
                     return TRUE;
                 }
                 break;
@@ -265,7 +268,7 @@ void processEvent(BYTE tableIndex, BYTE * msg) {
                         if ((NV->spare[10] >= 0x80) && (NV->spare[10] < 0x90)){// Only execute when in 1Track mode
                             executeEvent = executeAction (io, TRUE);// 1Track related
                         }
-                    if (executeEvent == TRUE){// 1Track related
+                        if (executeEvent == TRUE){// 1Track related
                             switch (NV->io[io].type) {
                                 case TYPE_OUTPUT:
                                     if (NV->io[io].flags & FLAG_EXPEDITED_ACTIONS) {

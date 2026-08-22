@@ -63,9 +63,9 @@ extern "C" {
 /*******************************************************************
  * Module parameters
  */ 
-#define MAJOR_VER 	2
-#define MINOR_VER 	'T'        // Minor version character
-#define BETA        5
+#define MAJOR_VER 	2          // Any value between 1 and 255
+#define MINOR_VER 	'T'        // Minor version character between A and Z
+#define BETA        37         // Any value between 1 and 255, zero indicates not beta, read here as 2 beta 5, base CANMIO software
 
 #include "GenericTypeDefs.h"
 #include "cbusdefs8q.h"

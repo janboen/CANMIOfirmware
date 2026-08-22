@@ -118,7 +118,7 @@ extern "C" {
 #ifdef __18F25K80
 #define MAX_WRITEABLE_FLASH     0x7FFF
 #endif
- #ifdef __18F26K80
+#ifdef __18F26K80
 #define MAX_WRITEABLE_FLASH     0xFFFF
 #endif 
     

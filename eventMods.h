@@ -23,7 +23,7 @@ extern struct io2Pin {
 
 extern struct io2Pin io2Pins[];
 
-void io2PinMapping();
+void io2PinMapping(void);
 WORD modifyEN(WORD);
 BOOL executeAction (unsigned char, BOOL);
 

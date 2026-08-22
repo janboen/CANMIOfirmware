@@ -1,4 +1,3 @@
-
 /*
  Routines for CBUS FLiM operations - part of CBUS libraries for PIC 18F
   This work is licensed under the:
@@ -114,6 +113,7 @@
  *	The Main CANMIO program supporting configurable I/O.
  */
 
+#include "GenericTypeDefs.h"
 #include "devincs.h"
 #include <stddef.h>
 #include "module.h"
@@ -130,6 +130,9 @@
 #include "can18.h"
 #include "cbus.h"
 #include "actionQueue.h"
+#include "digitalOut.h"
+#include "mioEvents.h"
+
 #ifdef SERVO
 #include "servo.h"
 #endif
@@ -158,19 +161,19 @@ const rom Config configs[NUM_IO] = {
     // TODO check ordering of 8-15
     {11, 'C', 0, 0xFF},   //0
     {12, 'C', 1, 0xFF},   //1
-    {13, 'C', 2, 0xFF},   //2 (OUT))
+    {13, 'C', 2, 0xFF},   //2 (OUT)
     {14, 'C', 3, 0xFF},   //3
     {15, 'C', 4, 0xFF},   //4
     {16, 'C', 5, 0xFF},   //5
-    {17, 'C', 6, 0xFF},   //6 (OUT))
+    {17, 'C', 6, 0xFF},   //6 (OUT)
     {18, 'C', 7, 0xFF},   //7
     {21, 'B', 0, 10},   //8
     {22, 'B', 1, 8},   //9
     {25, 'B', 4, 9},   //10
-    {26, 'B', 5, 0xFF},   //11 (OUT))
+    {26, 'B', 5, 0xFF},   //11 (OUT)
     {3,  'A', 1, 1},   //12
     {2,  'A', 0, 0},   //13
-    {5,  'A', 3, 3},   //14 (OUT))
+    {5,  'A', 3, 3},   //14 (OUT)
     {7,  'A', 5, 4}    //15
 };
 
@@ -296,8 +299,8 @@ int main(void) @0x800 {
         FLiMSWCheck();  // Check FLiM switch for any mode changes
         
         //If the node has been configured for 1Track then also execute the 1Track logic 
-        if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= XMODE)){
-            trackCoreLogic(); // Check all 4 channels of 1Track but not yet generate/consume messages
+        if ((NV->spare[10] >= STDMODE) && (NV->spare[10] <= 0x84)){//Hard coded the max NV as we no longer use CALMODE
+            trackCoreLogic(); // Check all channels of 1Track but not yet generate/consume messages
         }
         
         if (started) {

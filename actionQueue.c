@@ -1,5 +1,5 @@
 /*
- Routines for CBUS FLiM operations - part of CBUS libraries for PIC 18F
+Routines for CBUS FLiM operations - part of CBUS libraries for PIC 18F
   This work is licensed under the:
       Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
    To view a copy of this license, visit:
